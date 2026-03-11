@@ -1,0 +1,11 @@
+{
+  "summary": {
+    "task": "open browser and open documentation of pyautogui",
+    "model": "gpt-4o",
+    "success": false,
+    "total_steps": 0,
+    "elapsed_seconds": 0.0,
+    "error": "blank_screenshot: Screenshot is blank (mean=1.8/255, stddev=0.8). Display may not be active or screen capture backend returned an empty frame."
+  },
+  "steps": []
+}

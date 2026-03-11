@@ -1,13 +1,13 @@
 import base64
+import io
 import json
-from typing import List
+from typing import List, Optional
 
 import google.generativeai as genai
 from PIL import Image
-import io
 
 from actions.types import Action
-from models.base import BaseModel, SYSTEM_PROMPT
+from models.base import BaseModel, SYSTEM_PROMPT, strip_fences
 
 
 class GoogleProvider(BaseModel):
@@ -28,29 +28,18 @@ class GoogleProvider(BaseModel):
         history: List[dict],
         screen_width: int,
         screen_height: int,
+        sysinfo_text: Optional[str] = None,
     ) -> Action:
-        history_text = self._build_history_text(history)
-        user_text = (
-            f"Task: {task}\n"
-            f"Screen resolution: {screen_width}x{screen_height}\n"
-            f"{history_text}\n\n"
-            "Current screenshot attached. Return your next action as JSON."
+        user_text = self._build_user_text(
+            task, history, screen_width, screen_height, sysinfo_text
         )
-
         image_bytes = base64.b64decode(screenshot_b64)
         image = Image.open(io.BytesIO(image_bytes))
-
         response = self.client.generate_content(
             [user_text, image],
             generation_config=genai.types.GenerationConfig(max_output_tokens=512),
         )
-
-        raw = response.text.strip()
-        # strip markdown code fences if the model wraps its output
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-
+        raw = strip_fences(response.text.strip())
+        if not raw:
+            raise ValueError("Model returned empty response")
         return Action.from_dict(json.loads(raw))

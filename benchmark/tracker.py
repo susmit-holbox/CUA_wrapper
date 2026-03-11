@@ -1,8 +1,9 @@
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from actions.types import Action
 
@@ -19,7 +20,8 @@ class StepRecord:
 class BenchmarkTracker:
     task: str
     model_name: str
-    steps: List[StepRecord] = field(default_factory=list)
+    session_dir: Optional[Path] = None
+    steps: list = field(default_factory=list)
     start_time: Optional[float] = None
     end_time: Optional[float] = None
     success: Optional[bool] = None
@@ -42,13 +44,14 @@ class BenchmarkTracker:
         self.end_time = time.time()
         self.success = success
         self.error = error
+        if self.session_dir:
+            self.save(self.session_dir)
 
     @property
     def elapsed_seconds(self) -> float:
         if self.start_time is None:
             return 0.0
-        end = self.end_time or time.time()
-        return round(end - self.start_time, 2)
+        return round((self.end_time or time.time()) - self.start_time, 2)
 
     @property
     def total_steps(self) -> int:
@@ -64,11 +67,10 @@ class BenchmarkTracker:
             "error": self.error,
         }
 
-    def save(self, path: str = "results") -> Path:
-        out_dir = Path(path)
+    def save(self, directory: Optional[Path] = None) -> Path:
+        out_dir = directory or self.session_dir or Path("data/sessions")
         out_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = int(time.time())
-        filename = out_dir / f"{self.model_name}_{timestamp}.json"
+        results_file = out_dir / "results.json"
         data = {
             "summary": self.summary(),
             "steps": [
@@ -81,5 +83,20 @@ class BenchmarkTracker:
                 for s in self.steps
             ],
         }
-        filename.write_text(json.dumps(data, indent=2))
-        return filename
+        results_file.write_text(json.dumps(data, indent=2))
+        return results_file
+
+
+def make_session_dir(task: str, model_name: str) -> Path:
+    """
+    Create and return a timestamped session directory under data/sessions/.
+    e.g.  data/sessions/20260311_143022_open-browser_gpt-4o/
+    """
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    slug = re.sub(r"[^a-z0-9]+", "-", task.lower())[:30].strip("-")
+    model_slug = re.sub(r"[^a-z0-9]+", "-", model_name.lower())
+    name = f"{timestamp}_{slug}_{model_slug}"
+    session_dir = Path("data") / "sessions" / name
+    session_dir.mkdir(parents=True, exist_ok=True)
+    (session_dir / "screenshots").mkdir(exist_ok=True)
+    return session_dir

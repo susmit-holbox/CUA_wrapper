@@ -9,7 +9,6 @@ Usage:
 """
 import argparse
 import os
-import subprocess
 import sys
 
 from dotenv import load_dotenv
@@ -19,25 +18,10 @@ from rich.table import Table
 load_dotenv()
 console = Console()
 
-
-def _ensure_display() -> None:
-    """
-    Make sure DISPLAY and XAUTHORITY are set so pyautogui can reach the X server.
-    Needed when running from terminals (e.g. inside an IDE) that inherit a stripped env.
-    """
-    if not os.environ.get("DISPLAY"):
-        os.environ["DISPLAY"] = ":0"
-
-    if not os.environ.get("XAUTHORITY"):
-        default = os.path.expanduser("~/.Xauthority")
-        if os.path.exists(default):
-            os.environ["XAUTHORITY"] = default
-
-    # Grant local connections if xhost is available (silently ignore failures)
-    subprocess.run(["xhost", "+local:"], capture_output=True)
-
-
-_ensure_display()
+# pynput on Linux uses XWayland (via DISPLAY) when available.
+# Set a fallback so it can find the X server when running inside an IDE terminal.
+if not os.environ.get("DISPLAY"):
+    os.environ["DISPLAY"] = ":0"
 
 PROVIDERS = ("anthropic", "openai", "google")
 
@@ -82,20 +66,23 @@ def main():
                         help="Natural language task for the agent to perform")
     parser.add_argument("--max-steps", type=int, default=50,
                         help="Maximum number of actions before giving up (default: 50)")
-    parser.add_argument("--save-results", action="store_true",
-                        help="Save benchmark results to the results/ directory")
+    parser.add_argument("--no-save", action="store_true",
+                        help="Skip saving session data to disk")
     args = parser.parse_args()
 
     model = build_model(args.provider, args.model)
+    console.print(f"[dim]Provider:[/dim] {args.provider}  [dim]Model:[/dim] {model.model_name}")
 
+    from benchmark.tracker import make_session_dir
     from core.loop import run
-    tracker = run(model=model, task=args.task, max_steps=args.max_steps)
+
+    session_dir = None if args.no_save else make_session_dir(args.task, model.model_name)
+    if session_dir:
+        console.print(f"[dim]Session:[/dim] {session_dir}")
+
+    tracker = run(model=model, task=args.task, max_steps=args.max_steps, session_dir=session_dir)
 
     print_summary(tracker)
-
-    if args.save_results:
-        path = tracker.save()
-        console.print(f"[green]Results saved to:[/green] {path}")
 
 
 if __name__ == "__main__":

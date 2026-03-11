@@ -1,10 +1,10 @@
 import json
-from typing import List
+from typing import List, Optional
 
 from openai import OpenAI
 
 from actions.types import Action
-from models.base import BaseModel, SYSTEM_PROMPT
+from models.base import BaseModel, SYSTEM_PROMPT, strip_fences
 
 
 class OpenAIProvider(BaseModel):
@@ -21,15 +21,11 @@ class OpenAIProvider(BaseModel):
         history: List[dict],
         screen_width: int,
         screen_height: int,
+        sysinfo_text: Optional[str] = None,
     ) -> Action:
-        history_text = self._build_history_text(history)
-        user_text = (
-            f"Task: {task}\n"
-            f"Screen resolution: {screen_width}x{screen_height}\n"
-            f"{history_text}\n\n"
-            "Current screenshot attached. Return your next action as JSON."
+        user_text = self._build_user_text(
+            task, history, screen_width, screen_height, sysinfo_text
         )
-
         response = self.client.chat.completions.create(
             model=self.model_name,
             max_tokens=512,
@@ -50,6 +46,10 @@ class OpenAIProvider(BaseModel):
                 },
             ],
         )
-
-        raw = response.choices[0].message.content.strip()
+        raw = response.choices[0].message.content or ""
+        raw = strip_fences(raw.strip())
+        if not raw:
+            raise ValueError(
+                f"Model returned empty response. finish_reason={response.choices[0].finish_reason}"
+            )
         return Action.from_dict(json.loads(raw))
