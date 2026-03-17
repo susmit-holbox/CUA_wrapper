@@ -1,0 +1,13 @@
+{
+  "task": "open browser and open documentation of pyautogui",
+  "model": "gpt-4o",
+  "system": {
+    "os_name": "Linux",
+    "os_version": "6.18.10-200.fc43.x86_64",
+    "distro": "Fedora Linux 43 (Workstation Edition)",
+    "desktop": "GNOME-Classic:GNOME",
+    "display_server": "Wayland",
+    "screen_width": 1920,
+    "screen_height": 1080
+  }
+}

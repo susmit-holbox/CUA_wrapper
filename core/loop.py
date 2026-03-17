@@ -126,6 +126,10 @@ def run(
             tracker.finish(success=False, error=str(exc))
             return tracker
 
+        # Give the UI time to respond before the next screenshot.
+        # Navigation / typing gets more time; scrolls / waits get less.
+        _post_action_sleep(action)
+
         history.append(action.to_dict())
 
     console.print("[yellow]Max steps reached without completion.[/yellow]")
@@ -177,6 +181,27 @@ def _write_metadata(
         "system": info.as_dict(),
     }
     (session_dir / "metadata.json").write_text(json.dumps(meta, indent=2))
+
+
+def _post_action_sleep(action: Action) -> None:
+    """
+    Brief pause after an action so the UI has time to respond before the
+    next screenshot is taken.  Navigation and key actions get more time
+    because they typically trigger page loads or window switches.
+    """
+    delays = {
+        ActionType.CLICK:        0.8,
+        ActionType.DOUBLE_CLICK: 0.8,
+        ActionType.RIGHT_CLICK:  0.8,
+        ActionType.TYPE:         1.2,
+        ActionType.KEY:          1.0,
+        ActionType.SCROLL:       0.4,
+        ActionType.SCREENSHOT:   0.0,
+        ActionType.WAIT:         0.0,  # wait already slept
+    }
+    delay = delays.get(action.type, 0.8)
+    if delay > 0:
+        time.sleep(delay)
 
 
 def _log_action(action: Action, step: int) -> None:

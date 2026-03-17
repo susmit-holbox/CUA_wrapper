@@ -33,10 +33,13 @@ Each response must be a single JSON object with an "action" field. Available act
 Rules:
 - Return ONLY a JSON object, no markdown, no extra text.
 - Use coordinates relative to the screenshot dimensions provided.
-- When the task is complete, return the "done" action.
 - Be precise with coordinates. Click the center of UI elements.
 - The screenshot may look very dark if a dark-theme application is open - that is normal.
 - Use OS/desktop context (provided in each message) to make environment-appropriate decisions.
+- After typing a command or URL, always include "\n" at the end of the text to press Enter, unless you deliberately want to avoid submitting.
+- Every action you take is followed by a fresh screenshot. Use it to verify the action had the expected effect before proceeding.
+- If the screen looks unchanged after an action, the action may not have landed - try a different approach (e.g. click the target again, use a keyboard shortcut, or use a different method).
+- Only return "done" when the task outcome is VISUALLY confirmed in the current screenshot. Do not declare done based on having attempted an action - confirm you can see the result.
 """
 
 
